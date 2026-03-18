@@ -26,7 +26,7 @@ def _load_env():
 _load_env()
 
 # ── Telegram ──────────────────────────────────────────────────────────────────
-BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8253905687:AAF7sGc-HEBvVCkV8YIoByG-NuMgIWVF-vE")
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 _raw_owner = os.environ.get("YOUR_TELEGRAM_USER_ID", "0")
 OWNER_CHAT_ID = int(_raw_owner) if _raw_owner.isdigit() else 0
 API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
