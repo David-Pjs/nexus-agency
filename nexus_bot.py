@@ -132,6 +132,32 @@ def send_typing(chat_id: int):
     tg_post("sendChatAction", {"chat_id": chat_id, "action": "typing"})
 
 
+def send_photo(chat_id: int, image_url: str, caption: str = ""):
+    """Send an image to Telegram by URL."""
+    tg_post("sendPhoto", {
+        "chat_id": chat_id,
+        "photo": image_url,
+        "caption": caption,
+        "parse_mode": "Markdown",
+    })
+
+
+def download_file(file_id: str) -> bytes | None:
+    """Download a file from Telegram servers."""
+    info = tg_get("getFile", {"file_id": file_id})
+    if not info or not info.get("ok"):
+        return None
+    file_path = info["result"]["file_path"]
+    url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "NEXUS-Agency/1.0"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read()
+    except Exception as e:
+        print(f"[Download error] {e}")
+        return None
+
+
 # ── Claude CLI ────────────────────────────────────────────────────────────────
 
 def ask_claude(user_message: str, system_prompt: str, chat_id: int = None) -> str:
@@ -224,7 +250,9 @@ def cmd_start(chat_id: int):
         "`/news`  [topic] — latest headlines\n"
         "`/weather`  [city] — forecast\n"
         "`/remind`  30m  [message] — reminder\n"
+        "`/imagine`  [prompt] — generate an image\n"
         "`/status` — system health\n\n"
+        "_Send me any photo and I'll analyze it._\n\n"
         "*🛠 Utility*\n"
         "`/alerts` — active price alerts\n"
         "`/clear` — reset context\n"
@@ -441,6 +469,87 @@ def cmd_status(chat_id: int):
     send_message(chat_id, get_status(alert_count, opp_count))
 
 
+def cmd_imagine(chat_id: int, prompt: str):
+    """Generate an image via Pollinations.ai — free, no key needed."""
+    if not prompt.strip():
+        send_message(chat_id,
+            "🎨 *FORGE  |  Image Generation*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "Usage: `/imagine [description]`\n\n"
+            "Examples:\n"
+            "`/imagine futuristic Lagos skyline at night`\n"
+            "`/imagine African developer coding in space`\n"
+            "`/imagine neon cyberpunk Abuja marketplace`"
+        )
+        return
+
+    send_typing(chat_id)
+    send_message(chat_id, "🎨 Generating your image...")
+
+    # Pollinations.ai — completely free, no auth
+    encoded = urllib.parse.quote(prompt.strip())
+    seed = int(time.time()) % 9999
+    image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&seed={seed}&nologo=true"
+
+    send_photo(chat_id, image_url, caption=f"🎨 _{prompt[:100]}_")
+    print(f"[FORGE] Image generated: {prompt[:60]}")
+
+
+def cmd_analyze_image(chat_id: int, file_id: str, caption: str = ""):
+    """Download a Telegram image and analyze it with Claude."""
+    send_typing(chat_id)
+    send_message(chat_id, "👁 Analyzing your image...")
+
+    img_bytes = download_file(file_id)
+    if not img_bytes:
+        send_message(chat_id, "⚠️ Could not download the image. Try again.")
+        return
+
+    # Save temporarily
+    import tempfile
+    tmp_path = os.path.join(_HERE, f"_tmp_img_{int(time.time())}.jpg")
+    try:
+        with open(tmp_path, "wb") as f:
+            f.write(img_bytes)
+
+        question = caption.strip() if caption.strip() else "Describe this image in detail. What do you see? If there is text, read it. If there is a chart or data, analyze it. If it is a document, summarize it."
+
+        cmd = [
+            "claude",
+            "--system-prompt", "You are NEXUS, an expert image analyst. Analyze images thoroughly — read text, interpret charts, describe scenes, extract data. Be detailed and useful.",
+            "--output-format", "text",
+            "-p", question,
+            "--permission-mode", "dontAsk",
+            "--dangerously-skip-permissions",
+        ]
+
+        env = os.environ.copy()
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
+
+        # Pass image path in the prompt since claude CLI supports file attachments
+        prompt_with_image = f"[Image file: {tmp_path}]\n\n{question}"
+        cmd[-1] = prompt_with_image
+
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                timeout=CLAUDE_TIMEOUT, env=env, cwd=_HERE)
+        response = result.stdout.decode("utf-8", errors="replace").strip()
+
+        if not response:
+            response = "I can see the image but couldn't generate a detailed analysis. Try asking a specific question about it."
+
+        send_message(chat_id,
+            f"👁 *NEXUS  |  Image Analysis*\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"{response}"
+        )
+    finally:
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
+
 def cmd_agent_route(chat_id: int, agent: str, user_input: str, original_text: str):
     """Route a slash command to a named agent via Claude."""
     send_typing(chat_id)
@@ -486,6 +595,8 @@ def handle_message(chat_id: int, text: str, username: str):
             return cmd_remind(chat_id, args)
         if cmd == "status":
             return cmd_status(chat_id)
+        if cmd == "imagine":
+            return cmd_imagine(chat_id, args)
         if cmd in ("scout", "architect", "herald", "forge"):
             return cmd_agent_route(chat_id, cmd, args, text)
 
@@ -567,9 +678,7 @@ def main():
                 chat_id = msg["chat"]["id"]
                 text = msg.get("text", "").strip()
                 username = msg.get("from", {}).get("username", "user")
-
-                if not text:
-                    continue
+                photos = msg.get("photo")
 
                 # Optional: only accept messages from owner
                 if OWNER_CHAT_ID and chat_id != OWNER_CHAT_ID:
@@ -577,6 +686,16 @@ def main():
                     continue
 
                 try:
+                    # Photo message — analyze it
+                    if photos:
+                        best = max(photos, key=lambda p: p.get("file_size", 0))
+                        caption = msg.get("caption", "").strip()
+                        cmd_analyze_image(chat_id, best["file_id"], caption)
+                        continue
+
+                    if not text:
+                        continue
+
                     handle_message(chat_id, text, username)
                 except Exception as e:
                     print(f"[Message handler error] {e}")
