@@ -111,21 +111,58 @@ def tg_post(method: str, data: dict) -> dict | None:
         return None
 
 
-def send_message(chat_id: int, text: str):
+def send_message(chat_id: int, text: str, buttons: list = None):
+    """
+    Send a message with optional inline keyboard buttons.
+    buttons format: [[("Label", "callback_data"), ...], ...]
+    Each inner list is a row of buttons.
+    """
     if not text:
         text = "(no response)"
     text = str(text)
     chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
-    for chunk in chunks:
-        result = tg_post("sendMessage", {
+
+    for i, chunk in enumerate(chunks):
+        data = {
             "chat_id": chat_id,
             "text": chunk,
             "parse_mode": "Markdown",
             "disable_web_page_preview": True,
-        })
+        }
+        # Only add buttons to the last chunk
+        if buttons and i == len(chunks) - 1:
+            data["reply_markup"] = {
+                "inline_keyboard": [
+                    [{"text": label, "callback_data": cb} for label, cb in row]
+                    for row in buttons
+                ]
+            }
+        result = tg_post("sendMessage", data)
         if not result or not result.get("ok"):
-            # Fallback to plain text if Markdown parse fails
             tg_post("sendMessage", {"chat_id": chat_id, "text": chunk})
+
+
+def send_menu(chat_id: int, text: str = None):
+    """Send the main NEXUS menu as inline buttons."""
+    send_message(
+        chat_id,
+        text or "🧠 *NEXUS  |  Quick Menu*\nTap anything to run it:",
+        buttons=[
+            [("⚡ Market", "alpha"), ("🏹 Bounty", "bounty"), ("📰 News", "news")],
+            [("🔭 Research", "scout_menu"), ("🌤 Weather", "weather"), ("📊 Status", "status")],
+            [("🎨 Imagine", "imagine_menu"), ("🔍 Search", "search_menu"), ("📅 Calendar", "atlas_today")],
+            [("⏰ Remind", "remind_menu"), ("💰 Yields", "alpha_yields"), ("😱 Fear", "alpha_fear")],
+            [("🔴 Alerts", "alerts"), ("🧹 Clear", "clear"), ("❓ Help", "start")],
+        ]
+    )
+
+
+def answer_callback(callback_query_id: str, text: str = ""):
+    """Acknowledge a button tap (removes loading spinner)."""
+    tg_post("answerCallbackQuery", {
+        "callback_query_id": callback_query_id,
+        "text": text,
+    })
 
 
 def send_typing(chat_id: int):
@@ -260,7 +297,12 @@ def cmd_start(chat_id: int):
         "`/alerts` — active price alerts\n"
         "`/clear` — reset context\n"
         "`/agents` — full agent list\n\n"
-        "_Or just talk — NEXUS routes everything._"
+        "_Or just talk — NEXUS routes everything._",
+        buttons=[
+            [("⚡ Market", "alpha"), ("🏹 Bounty", "bounty"), ("📰 News", "news")],
+            [("🔭 Research", "scout_menu"), ("🎨 Imagine", "imagine_menu"), ("🔍 Search", "search_menu")],
+            [("📊 Full Menu", "menu")],
+        ]
     )
 
 
@@ -823,6 +865,8 @@ def handle_message(chat_id: int, text: str, username: str):
         return cmd_alerts(chat_id)
     if text == "/cancel":
         return cmd_cancel(chat_id)
+    if text == "/menu":
+        return send_menu(chat_id)
 
     # ── Agent slash commands ───────────────────────────────────────────────────
     cmd_match = re.match(r"^/(\w+)(?:\s+(.*))?$", text, re.DOTALL)
@@ -872,6 +916,134 @@ def handle_message(chat_id: int, text: str, username: str):
     print(f"   → Replied ({len(response)} chars)")
 
 
+# ── Callback handler (button taps) ───────────────────────────────────────────
+
+def handle_callback(cb: dict):
+    """Handle inline keyboard button taps."""
+    chat_id = cb["message"]["chat"]["id"]
+    data = cb.get("data", "")
+    cb_id = cb["id"]
+
+    # Acknowledge tap immediately
+    answer_callback(cb_id)
+
+    # Owner check
+    if OWNER_CHAT_ID and chat_id != OWNER_CHAT_ID:
+        return
+
+    # Route callback data to the right handler
+    if data == "alpha":
+        cmd_alpha(chat_id, "")
+    elif data == "alpha_yields":
+        cmd_alpha(chat_id, "yields")
+    elif data == "alpha_fear":
+        cmd_alpha(chat_id, "fear")
+    elif data == "bounty":
+        cmd_bounty(chat_id, "")
+    elif data == "bounty_live":
+        cmd_bounty(chat_id, "live")
+    elif data == "news":
+        cmd_news(chat_id, "")
+    elif data == "news_crypto":
+        cmd_news(chat_id, "crypto")
+    elif data == "news_ai":
+        cmd_news(chat_id, "ai")
+    elif data == "status":
+        cmd_status(chat_id)
+    elif data == "alerts":
+        cmd_alerts(chat_id)
+    elif data == "clear":
+        cmd_clear(chat_id)
+    elif data == "start":
+        cmd_start(chat_id)
+    elif data == "atlas_today":
+        cmd_atlas(chat_id, "today")
+    elif data == "atlas_tomorrow":
+        cmd_atlas(chat_id, "tomorrow")
+    elif data == "menu":
+        send_menu(chat_id)
+    elif data == "scout_menu":
+        send_message(chat_id,
+            "🔭 *SCOUT* — What should I research?\n\nJust type:\n`/scout [your topic]`",
+            buttons=[[("🌍 Nigerian Tech", "scout_nigeria"),
+                      ("🤖 AI News", "scout_ai"),
+                      ("🪙 DeFi Trends", "scout_defi")]]
+        )
+    elif data == "scout_nigeria":
+        cmd_scout(chat_id, "Nigerian tech ecosystem 2025 opportunities")
+    elif data == "scout_ai":
+        cmd_scout(chat_id, "latest AI agent developments 2025")
+    elif data == "scout_defi":
+        cmd_scout(chat_id, "best DeFi opportunities and trends right now")
+    elif data == "weather":
+        cmd_weather(chat_id, "Lagos")
+    elif data == "imagine_menu":
+        send_message(chat_id,
+            "🎨 *FORGE  |  Image Generation*\n\nType:\n`/imagine [your description]`\n\n"
+            "Or tap a quick prompt:",
+            buttons=[
+                [("🌆 Lagos Skyline", "img_lagos"), ("🤖 AI Robot", "img_robot")],
+                [("🌍 Africa Future", "img_africa"), ("💎 Crypto Art", "img_crypto")],
+            ]
+        )
+    elif data == "img_lagos":
+        cmd_imagine(chat_id, "futuristic Lagos Nigeria skyline at night neon lights cyberpunk")
+    elif data == "img_robot":
+        cmd_imagine(chat_id, "African AI robot developer coding in a glowing tech lab")
+    elif data == "img_africa":
+        cmd_imagine(chat_id, "futuristic Africa 2050 advanced technology thriving cities")
+    elif data == "img_crypto":
+        cmd_imagine(chat_id, "abstract cryptocurrency DeFi blockchain art glowing digital")
+    elif data == "search_menu":
+        send_message(chat_id,
+            "🔍 *Search* — Type:\n`/search [your query]`\n\nOr quick searches:",
+            buttons=[
+                [("🇳🇬 Nigeria Tech", "search_ng"), ("⚡ DeFi News", "search_defi")],
+                [("🤖 AI Agents", "search_ai"), ("🏆 Hackathons", "search_hack")],
+            ]
+        )
+    elif data == "search_ng":
+        cmd_search(chat_id, "Nigeria tech startups funding 2025")
+    elif data == "search_defi":
+        cmd_search(chat_id, "DeFi yield opportunities 2025")
+    elif data == "search_ai":
+        cmd_search(chat_id, "AI agents autonomous 2025")
+    elif data == "search_hack":
+        cmd_search(chat_id, "web3 AI hackathon 2025 prize")
+    elif data == "remind_menu":
+        send_message(chat_id,
+            "⏰ *Remind* — Type:\n`/remind 30m your message`\n\n"
+            "Time formats: `15m` `1h` `2h30m`"
+        )
+
+
+def _set_bot_commands():
+    """Register commands with Telegram so they appear in the / menu."""
+    commands = [
+        {"command": "start",    "description": "Show menu"},
+        {"command": "menu",     "description": "Quick tap menu"},
+        {"command": "alpha",    "description": "Crypto market snapshot"},
+        {"command": "bounty",   "description": "Scan hackathons and grants"},
+        {"command": "scout",    "description": "Research anything live"},
+        {"command": "search",   "description": "Search the web"},
+        {"command": "browse",   "description": "Read any webpage"},
+        {"command": "act",      "description": "Fill forms and click on websites"},
+        {"command": "imagine",  "description": "Generate an image"},
+        {"command": "news",     "description": "Latest headlines"},
+        {"command": "weather",  "description": "Weather forecast"},
+        {"command": "remind",   "description": "Set a reminder"},
+        {"command": "atlas",    "description": "Google Calendar"},
+        {"command": "forge",    "description": "Write code"},
+        {"command": "herald",   "description": "Marketing and content"},
+        {"command": "architect","description": "Business strategy"},
+        {"command": "alerts",   "description": "Your price alerts"},
+        {"command": "status",   "description": "Bot health"},
+        {"command": "clear",    "description": "Reset conversation"},
+    ]
+    tg_post("setMyCommands", {"commands": commands})
+    print("  Commands: Registered with Telegram")
+
+
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
 def main():
@@ -905,8 +1077,12 @@ def main():
 
     print("\n  Polling for messages...\n")
 
+    # Register commands in Telegram's / menu
+    _set_bot_commands()
+
     if OWNER_CHAT_ID:
         send_message(OWNER_CHAT_ID, "🧠 *NEXUS Online* — All systems nominal. Type /start for help.")
+        send_menu(OWNER_CHAT_ID, "Tap anything to get started:")
 
     offset = 0
     backoff = 1
@@ -932,6 +1108,13 @@ def main():
 
             for update in updates:
                 offset = update["update_id"] + 1
+
+                # Handle button taps
+                cb = update.get("callback_query")
+                if cb:
+                    handle_callback(cb)
+                    continue
+
                 msg = update.get("message")
                 if not msg:
                     continue
