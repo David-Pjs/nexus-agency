@@ -253,6 +253,7 @@ def cmd_start(chat_id: int):
         "`/imagine`  [prompt] — generate an image\n"
         "`/browse`  [url] — read any webpage\n"
         "`/search`  [query] — search the web\n"
+        "`/act`  [url] [task] — fill forms, click, navigate\n"
         "`/status` — system health\n\n"
         "_Send me any photo and I'll analyze it._\n\n"
         "*🛠 Utility*\n"
@@ -552,6 +553,147 @@ def cmd_analyze_image(chat_id: int, file_id: str, caption: str = ""):
             pass
 
 
+def send_photo_local(chat_id: int, image_url: str, caption: str = "", local_path: str = ""):
+    """Send a photo from local file path or URL."""
+    if local_path and os.path.exists(local_path):
+        url = f"{API_BASE}/sendPhoto"
+        import io
+        with open(local_path, "rb") as f:
+            img_data = f.read()
+        boundary = "----NexusBoundary"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="chat_id"\r\n\r\n'
+            f"{chat_id}\r\n"
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="caption"\r\n\r\n'
+            f"{caption}\r\n"
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="photo"; filename="screen.png"\r\n'
+            f"Content-Type: image/png\r\n\r\n"
+        ).encode() + img_data + f"\r\n--{boundary}--\r\n".encode()
+        req = urllib.request.Request(url, data=body,
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        try:
+            urllib.request.urlopen(req, timeout=30)
+        except Exception as e:
+            print(f"[send_photo_local error] {e}")
+    elif image_url:
+        send_photo(chat_id, image_url, caption)
+
+
+def cmd_act(chat_id: int, args: str):
+    """Plan an agentic browser task — shows plan before doing anything."""
+    parts = args.strip().split(None, 1)
+    if len(parts) < 2:
+        send_message(chat_id,
+            "🤖 *NEXUS  |  Agent Browser*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "Usage: `/act [url] [task]`\n\n"
+            "Examples:\n"
+            "`/act https://ethglobal.com/events register for the hackathon`\n"
+            "`/act https://forms.google.com/xyz fill out the form`\n"
+            "`/act https://example.com click the sign up button`\n\n"
+            "_I will show you a full plan before doing anything._"
+        )
+        return
+
+    url = parts[0].strip()
+    task = parts[1].strip()
+
+    if not url.startswith("http"):
+        url = "https://" + url
+
+    send_typing(chat_id)
+    send_message(chat_id, f"🤖 Reading `{url[:60]}`...\n_Building your action plan..._")
+
+    from agent_browser import (
+        read_page_for_planning, build_plan, format_plan,
+        store_pending, _is_dangerous
+    )
+
+    page_info = read_page_for_planning(url)
+
+    if "error" in page_info:
+        send_message(chat_id,
+            f"⚠️ Could not open that page.\n\n"
+            f"Error: `{page_info['error'][:100]}`\n\n"
+            f"Make sure Playwright is installed:\n"
+            f"`pip install playwright`\n"
+            f"`playwright install chromium`"
+        )
+        return
+
+    # Send screenshot of the page
+    ss = page_info.get("screenshot_path", "")
+    if ss and os.path.exists(ss):
+        send_photo_local(chat_id, None, caption=f"Current state of {url[:50]}", local_path=ss)
+        try:
+            os.remove(ss)
+        except Exception:
+            pass
+
+    # Build plan
+    steps = build_plan(task, page_info)
+    dangerous = _is_dangerous(steps)
+
+    # Store pending
+    store_pending(chat_id, task, url, steps, dangerous)
+
+    # Show plan
+    plan_text = format_plan(task, url, steps)
+    send_message(chat_id, plan_text)
+
+
+def cmd_confirm(chat_id: int, args: str):
+    """Execute a pending action plan after user confirmation."""
+    from agent_browser import pop_pending, _is_dangerous, execute_plan
+
+    pending = pop_pending(chat_id)
+    if not pending:
+        send_message(chat_id, "⚠️ No pending action, or it expired (5 min limit). Run `/act` again.")
+        return
+
+    # Double-check dangerous actions
+    if pending["is_dangerous"] and args.strip().upper() != "DANGEROUS":
+        send_message(chat_id,
+            "🚨 *This plan includes high-risk actions.*\n\n"
+            "To confirm, type exactly:\n`/confirm DANGEROUS`\n\n"
+            "Or `/cancel` to abort."
+        )
+        # Put it back
+        from agent_browser import store_pending
+        store_pending(chat_id, pending["task"], pending["url"],
+                      pending["steps"], pending["is_dangerous"])
+        return
+
+    send_message(chat_id,
+        f"🤖 *Executing plan...*\n"
+        f"Task: _{pending['task']}_\n"
+        f"Steps: {len(pending['steps'])}\n\n"
+        f"_I'll send you a screenshot after each action._"
+    )
+
+    result = execute_plan(
+        chat_id,
+        pending["steps"],
+        pending["url"],
+        send_message,
+        send_photo_local
+    )
+    send_message(chat_id, result)
+
+
+def cmd_cancel(chat_id: int):
+    """Cancel a pending action plan."""
+    from agent_browser import cancel_pending, has_pending
+    if has_pending(chat_id):
+        cancel_pending(chat_id)
+        send_message(chat_id, "✅ Action cancelled. Nothing was executed.")
+    else:
+        send_message(chat_id, "Nothing to cancel.")
+
+
 def cmd_browse(chat_id: int, args: str):
     """Read any URL and summarize it."""
     parts = args.strip().split(None, 1)
@@ -679,6 +821,8 @@ def handle_message(chat_id: int, text: str, username: str):
         return cmd_clear(chat_id)
     if text == "/alerts":
         return cmd_alerts(chat_id)
+    if text == "/cancel":
+        return cmd_cancel(chat_id)
 
     # ── Agent slash commands ───────────────────────────────────────────────────
     cmd_match = re.match(r"^/(\w+)(?:\s+(.*))?$", text, re.DOTALL)
@@ -708,6 +852,10 @@ def handle_message(chat_id: int, text: str, username: str):
             return cmd_browse(chat_id, args)
         if cmd == "search":
             return cmd_search(chat_id, args)
+        if cmd == "act":
+            return cmd_act(chat_id, args)
+        if cmd == "confirm":
+            return cmd_confirm(chat_id, args)
         if cmd == "scout":
             return cmd_scout(chat_id, args)
         if cmd in ("architect", "herald", "forge"):
