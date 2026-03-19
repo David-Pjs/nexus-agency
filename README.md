@@ -203,6 +203,30 @@ nexus-agency/
 
 ---
 
+## Important Warnings
+
+### Terms of Service
+Claude Code's subscription is designed for interactive developer use. Using it as an automated backend via subprocess is a grey area in Anthropic's ToS. Some users have reported account flags for similar patterns.
+
+**Safer alternatives that work with the same architecture:**
+- Anthropic API directly (`pip install anthropic`) — pay per token, no ToS risk
+- Ollama — fully local, fully free, no account needed
+- Groq free tier — fast, generous free limits
+
+To swap backends, only `ask_claude()` in `nexus_bot.py` needs to change. Everything else stays identical.
+
+### Security
+- Set `YOUR_TELEGRAM_USER_ID` in `.env` — this locks the bot to only you
+- Never commit `.env` to GitHub (already gitignored)
+- Never share your bot token
+- Review every `/act` plan carefully before typing `/confirm`
+- The `agent_audit.log` records every browser action taken
+
+### This is a personal tool
+NEXUS is designed for one user. It is not multi-tenant. Every person who wants their own NEXUS should deploy their own instance with their own credentials.
+
+---
+
 ## Contributing
 
 Pull requests welcome. Ideas:

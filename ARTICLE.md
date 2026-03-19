@@ -198,6 +198,33 @@ That's it. Your agency is live.
 
 ---
 
+## The Honest Downsides
+
+I'm not going to pretend this is perfect. Here's what you need to know before building it.
+
+**The Terms of Service grey area — this is the big one.**
+Claude Code's subscription is designed for interactive developer use. Running it as a 24/7 automated backend via subprocess is not what Anthropic built it for. Some developers have reported account flags or bans for similar patterns. For personal, low-volume use the risk is low — but it is real, and you should know about it.
+
+The fix is straightforward: swap the `ask_claude()` function to use the Anthropic API directly. At personal usage levels (50-100 messages/day) that costs $3-15/month. The entire rest of the architecture stays identical.
+
+**It stops when your laptop stops.**
+No VPS means no 24/7. When your machine sleeps, NEXUS sleeps. The 9AM BOUNTY digest only fires if you're running. This is solvable with a cheap VPS or an Android phone running Termux — but it takes extra setup.
+
+**Browser automation is powerful and requires care.**
+The `/act` command can fill forms and click buttons on your behalf. It has a confirmation system and audit log, but you are responsible for what you approve. Read every action plan before you type `/confirm`.
+
+**It is a personal tool, not a product.**
+NEXUS is locked to one Telegram user ID by design. It is not multi-user. It is not for sharing access with others. Every instance someone builds should be their own, with their own credentials.
+
+**The right alternatives:**
+- **Anthropic API directly** — same intelligence, pay per use, no ToS risk
+- **Ollama** — fully local, fully free, slightly less capable
+- **Groq free tier** — fast, generous limits, no subscription needed
+
+The architecture in this article works with any of these backends. The Claude Code CLI is one implementation, not the only one.
+
+---
+
 ## Final Thought
 
 I am a developer in Lagos. I built this in one session, for the cost of a monthly subscription I was already paying.
@@ -208,9 +235,11 @@ The only thing missing was the architecture to connect them.
 
 Now I have an AI agency that finds me opportunities, monitors markets, reads the web, fills forms, and thinks with me — running 24/7, costing nothing extra per message.
 
-If you're a developer anywhere — but especially if you're a developer in Africa navigating dollar-denominated AI costs — this is yours to take and build on.
+If you are a developer anywhere — but especially if you are a developer in Africa navigating dollar-denominated AI costs — this architecture is yours to take, adapt, and build on responsibly.
 
-The code is open. The approach is documented. The only thing left is to build.
+The code is open. The approach is documented. The risks are disclosed.
+
+The only thing left is to build.
 
 ---
 
