@@ -8,7 +8,7 @@ github.com/David-Pjs/nexus-agency
 
 ## Abstract
 
-The proliferation of large language model APIs has unlocked powerful AI capabilities, yet per-token pricing creates a structural barrier to adoption — particularly in emerging markets where dollar-denominated costs represent a disproportionate economic burden. This paper presents NEXUS, a personal AI agency architecture that achieves zero marginal inference cost by routing all LLM calls through a locally installed CLI tool (Claude Code) operating under a flat monthly subscription, rather than through direct API access. Built entirely in Python using standard library components, NEXUS delivers multi-agent orchestration, persistent memory, real-time data integration, and proactive background monitoring — accessible via Telegram from any personal computer or Android phone. We describe the system architecture, key implementation decisions, cost analysis, and the broader implications for AI accessibility in resource-constrained environments. NEXUS demonstrates that sophisticated AI agency does not require cloud infrastructure or variable API budgets: a $20/month subscription, a laptop, and a Telegram account are sufficient.
+The proliferation of large language model APIs has unlocked powerful AI capabilities, yet per-token pricing creates a structural barrier to adoption - particularly in emerging markets where dollar-denominated costs represent a disproportionate economic burden. This paper presents NEXUS, a personal AI agency architecture that achieves zero marginal inference cost by routing all LLM calls through a locally installed CLI tool (Claude Code) operating under a flat monthly subscription, rather than through direct API access. Built entirely in Python using standard library components, NEXUS delivers multi-agent orchestration, persistent memory, real-time data integration, and proactive background monitoring - accessible via Telegram from any personal computer or Android phone. We describe the system architecture, key implementation decisions, cost analysis, and the broader implications for AI accessibility in resource-constrained environments. NEXUS demonstrates that sophisticated AI agency does not require cloud infrastructure or variable API budgets: a $20/month subscription, a laptop, and a Telegram account are sufficient.
 
 **Keywords:** AI agents, multi-agent systems, LLM orchestration, emerging markets, personal AI, zero-cost inference, Telegram bots, Africa
 
@@ -16,17 +16,17 @@ The proliferation of large language model APIs has unlocked powerful AI capabili
 
 ## 1. Introduction
 
-Large language models have demonstrated capability across a wide range of tasks: research, code generation, strategic reasoning, creative work, and decision support. Commercial access to frontier models — via APIs from Anthropic, OpenAI, Google, and others — has enabled a new class of AI-powered applications. However, the dominant API pricing model creates compounding barriers to adoption:
+Large language models have demonstrated capability across a wide range of tasks: research, code generation, strategic reasoning, creative work, and decision support. Commercial access to frontier models - via APIs from Anthropic, OpenAI, Google, and others - has enabled a new class of AI-powered applications. However, the dominant API pricing model creates compounding barriers to adoption:
 
 - **Variable cost at scale.** Per-token pricing means costs grow with usage, making experimentation expensive and production unpredictable.
-- **Currency asymmetry.** Dollar-denominated pricing imposes exchange rate risk on developers in non-USD economies. A $50/month API budget represents approximately ₦80,000 in Nigeria as of 2024 — a meaningful fraction of a junior developer's monthly salary.
+- **Currency asymmetry.** Dollar-denominated pricing imposes exchange rate risk on developers in non-USD economies. A $50/month API budget represents approximately ₦80,000 in Nigeria as of 2024 - a meaningful fraction of a junior developer's monthly salary.
 - **Infrastructure dependency.** Most AI agent frameworks assume cloud deployment, adding complexity and cost beyond the model itself.
 
 Nigeria exemplifies this challenge at scale. With an estimated 700,000+ developers and one of Africa's fastest-growing technology sectors, Nigeria's AI community faces structural disadvantage not from lack of talent or ambition, but from the economics of access.
 
 NEXUS addresses this through a single architectural insight: **the Claude Code subscription, designed for software development, provides effectively unlimited LLM access at a flat monthly rate**. By treating the Claude Code CLI as an infrastructure component and invoking it via subprocess rather than through direct API calls, NEXUS eliminates marginal inference costs entirely while retaining full frontier model capability.
 
-The result is a personal AI agency — seven specialist agents, real-time data integrations, persistent SQLite memory, and a background scheduler — running on a personal laptop or Android phone, accessible anywhere via Telegram, at zero cost per interaction.
+The result is a personal AI agency - seven specialist agents, real-time data integrations, persistent SQLite memory, and a background scheduler - running on a personal laptop or Android phone, accessible anywhere via Telegram, at zero cost per interaction.
 
 ---
 
@@ -42,15 +42,15 @@ Consumer AI products (Replika, Character.ai, various GPT wrappers) provide conve
 
 ### 2.3 Local LLM Execution
 
-Ollama, LM Studio, and llama.cpp enable fully local model execution with zero ongoing costs. The tradeoff is capability: locally runnable models remain significantly behind frontier models on complex reasoning, research, and code generation tasks. NEXUS takes a distinct approach — it retains frontier model capability by leveraging an existing subscription rather than running degraded models locally.
+Ollama, LM Studio, and llama.cpp enable fully local model execution with zero ongoing costs. The tradeoff is capability: locally runnable models remain significantly behind frontier models on complex reasoning, research, and code generation tasks. NEXUS takes a distinct approach - it retains frontier model capability by leveraging an existing subscription rather than running degraded models locally.
 
 ### 2.4 Telegram as AI Interface
 
-Telegram's Bot API has been used as a lightweight interface for AI systems due to its cross-platform support, reliability, and free tier. Previous implementations have wrapped API-based chatbots in Telegram interfaces. NEXUS extends this pattern to a full multi-agent architecture with persistent state and background automation — demonstrating that Telegram is viable not just as a chat interface but as a complete AI agency control surface.
+Telegram's Bot API has been used as a lightweight interface for AI systems due to its cross-platform support, reliability, and free tier. Previous implementations have wrapped API-based chatbots in Telegram interfaces. NEXUS extends this pattern to a full multi-agent architecture with persistent state and background automation - demonstrating that Telegram is viable not just as a chat interface but as a complete AI agency control surface.
 
 ### 2.5 Positioning
 
-NEXUS occupies a gap between fully local models (free but limited) and cloud-hosted API agents (capable but expensive). It achieves frontier capability at flat cost by exploiting the economics of developer tool subscriptions — an approach not previously documented in the literature.
+NEXUS occupies a gap between fully local models (free but limited) and cloud-hosted API agents (capable but expensive). It achieves frontier capability at flat cost by exploiting the economics of developer tool subscriptions - an approach not previously documented in the literature.
 
 ---
 
@@ -84,7 +84,7 @@ result = subprocess.run(
 )
 ```
 
-This single substitution is the architecture. Everything else — agents, scheduler, persistence, integrations — is built on top of it.
+This single substitution is the architecture. Everything else - agents, scheduler, persistence, integrations - is built on top of it.
 
 ### 3.2 System Components
 
@@ -197,11 +197,11 @@ FIT_KEYWORDS_HIGH   = ["web3", "ai", "fintech", "blockchain",
 FIT_KEYWORDS_MEDIUM = ["mobile", "developer", "open source", "startup"]
 ```
 
-Scores range 1–10. New opportunities are deduplicated by URL in SQLite and ranked by fit score before delivery. This intentionally simple approach avoids additional model calls — a more sophisticated implementation could use embedding-based semantic similarity, at the cost of added complexity and latency.
+Scores range 1–10. New opportunities are deduplicated by URL in SQLite and ranked by fit score before delivery. This intentionally simple approach avoids additional model calls - a more sophisticated implementation could use embedding-based semantic similarity, at the cost of added complexity and latency.
 
 ### 3.4 Encoding Stability on Windows
 
-A common and underdocumented failure mode in Python/subprocess pipelines on Windows is codec errors when processing non-ASCII content — emoji, special characters, international text. This manifests as `UnicodeDecodeError` crashes that terminate the bot process. NEXUS addresses this explicitly:
+A common and underdocumented failure mode in Python/subprocess pipelines on Windows is codec errors when processing non-ASCII content - emoji, special characters, international text. This manifests as `UnicodeDecodeError` crashes that terminate the bot process. NEXUS addresses this explicitly:
 
 ```python
 env["PYTHONUTF8"] = "1"
@@ -209,7 +209,7 @@ env["PYTHONIOENCODING"] = "utf-8"
 stdout = result.stdout.decode("utf-8", errors="replace")
 ```
 
-This detail is particularly relevant for developers on Windows machines in Nigeria and across Africa — a population systematically underrepresented in deployment documentation written for macOS/Linux environments.
+This detail is particularly relevant for developers on Windows machines in Nigeria and across Africa - a population systematically underrepresented in deployment documentation written for macOS/Linux environments.
 
 ---
 
@@ -234,7 +234,7 @@ result = subprocess.run(
 response = result.stdout.decode("utf-8", errors="replace").strip()
 ```
 
-The 120-second timeout accommodates complex agent tasks — deep research, multi-step code generation — without blocking indefinitely. Exponential backoff (capped at 30s) handles transient network failures in the polling loop.
+The 120-second timeout accommodates complex agent tasks - deep research, multi-step code generation - without blocking indefinitely. Exponential backoff (capped at 30s) handles transient network failures in the polling loop.
 
 ### 4.2 Context Management
 
@@ -259,7 +259,7 @@ def ask_claude_with_history(chat_id, new_message, agent="nexus"):
 
 ### 4.3 Process Integrity
 
-A PID file prevents duplicate bot instances — a common failure mode when the bot is restarted without cleanly terminating the previous process:
+A PID file prevents duplicate bot instances - a common failure mode when the bot is restarted without cleanly terminating the previous process:
 
 ```python
 def _acquire_pid():
@@ -301,7 +301,7 @@ The zero-marginal-cost property means experimental use, debugging, and heavy dai
 
 ### 5.3 Latency
 
-Claude Code CLI introduces subprocess spawn overhead of approximately 400–600ms compared to direct API calls (~150–250ms). For conversational interactions, this is imperceptible. The tradeoff — ~300ms additional latency in exchange for zero marginal cost — is strongly favorable for personal use cases.
+Claude Code CLI introduces subprocess spawn overhead of approximately 400–600ms compared to direct API calls (~150–250ms). For conversational interactions, this is imperceptible. The tradeoff - ~300ms additional latency in exchange for zero marginal cost - is strongly favorable for personal use cases.
 
 ### 5.4 Live Test Results
 
@@ -335,7 +335,7 @@ The infrastructure is already in the developer's pocket.
 
 ## 7. Limitations
 
-**Subscription dependency.** NEXUS requires an active Claude Code subscription. If the subscription lapses, all intelligence stops. Mitigation: an Ollama fallback is architecturally straightforward — replace the `subprocess.run(["claude", ...])` call with an HTTP request to a local Ollama instance.
+**Subscription dependency.** NEXUS requires an active Claude Code subscription. If the subscription lapses, all intelligence stops. Mitigation: an Ollama fallback is architecturally straightforward - replace the `subprocess.run(["claude", ...])` call with an HTTP request to a local Ollama instance.
 
 **Single-process design.** The current implementation runs all agents in a single Python process. High message volume could cause latency as Claude CLI calls are synchronous. Mitigation: a thread pool for concurrent agent execution is a straightforward upgrade.
 
@@ -343,7 +343,7 @@ The infrastructure is already in the developer's pocket.
 
 **Single-user design.** Per-user conversation isolation exists; however, shared deployments would require per-user rate limiting and access control. Not a limitation for personal use.
 
-**WhatsApp.** Unofficial WhatsApp API access via Baileys carries account suspension risk. Official WhatsApp Business API requires business verification and per-message fees — reintroducing the cost structure NEXUS eliminates.
+**WhatsApp.** Unofficial WhatsApp API access via Baileys carries account suspension risk. Official WhatsApp Business API requires business verification and per-message fees - reintroducing the cost structure NEXUS eliminates.
 
 ---
 
@@ -365,7 +365,7 @@ NEXUS demonstrates that sophisticated multi-agent AI systems are buildable at ze
 
 The broader claim is stronger than a cost optimization. **The assumption that serious AI development requires cloud infrastructure and variable API budgets is false.** A personal computer, a $20/month subscription, and a Telegram bot token are sufficient to build and run an AI agency with real-time data integration, persistent memory, specialist agents, and proactive background automation.
 
-For Nigeria's 700,000 developers — and for the millions of builders across Africa, Southeast Asia, Latin America, and Eastern Europe navigating dollar-denominated AI access costs — this architecture represents a replicable path to building seriously with frontier AI without the financial overhead that has historically limited access to those already inside well-funded organizations.
+For Nigeria's 700,000 developers - and for the millions of builders across Africa, Southeast Asia, Latin America, and Eastern Europe navigating dollar-denominated AI access costs - this architecture represents a replicable path to building seriously with frontier AI without the financial overhead that has historically limited access to those already inside well-funded organizations.
 
 The intelligence is already available. The subscription already exists for many developers using Claude Code for software development. The marginal cost of turning that subscription into a full personal AI agency is the afternoon it takes to build it.
 
@@ -397,7 +397,7 @@ The code is available at: **github.com/David-Pjs/nexus-agency**
 
 ---
 
-*This paper was written using Claude Code as both the primary development tool and the runtime intelligence layer of the system described — a form of AI-assisted systems research that is itself an instance of the architecture under study.*
+*This paper was written using Claude Code as both the primary development tool and the runtime intelligence layer of the system described - a form of AI-assisted systems research that is itself an instance of the architecture under study.*
 
 *Source code:* github.com/David-Pjs/nexus-agency
 *License:* MIT
