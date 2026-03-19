@@ -251,6 +251,8 @@ def cmd_start(chat_id: int):
         "`/weather`  [city] — forecast\n"
         "`/remind`  30m  [message] — reminder\n"
         "`/imagine`  [prompt] — generate an image\n"
+        "`/browse`  [url] — read any webpage\n"
+        "`/search`  [query] — search the web\n"
         "`/status` — system health\n\n"
         "_Send me any photo and I'll analyze it._\n\n"
         "*🛠 Utility*\n"
@@ -550,6 +552,111 @@ def cmd_analyze_image(chat_id: int, file_id: str, caption: str = ""):
             pass
 
 
+def cmd_browse(chat_id: int, args: str):
+    """Read any URL and summarize it."""
+    parts = args.strip().split(None, 1)
+    if not parts:
+        send_message(chat_id,
+            "🌐 *Browse* — Usage:\n\n"
+            "`/browse https://example.com`\n"
+            "`/browse https://example.com what is their pricing?`\n\n"
+            "_Reads any webpage and summarizes it._"
+        )
+        return
+
+    url = parts[0].strip()
+    question = parts[1].strip() if len(parts) > 1 else ""
+
+    send_typing(chat_id)
+    send_message(chat_id, f"🌐 Reading `{url[:60]}`...")
+
+    from browser import read_page, format_page_summary
+    content = read_page(url)
+
+    if not content or content.startswith("Could not"):
+        send_message(chat_id, f"⚠️ Could not read that page. Try `/search` instead.")
+        return
+
+    prompt = format_page_summary(url, content, question)
+    send_typing(chat_id)
+    response = ask_claude(prompt, AGENT_PROMPTS.get("scout", AGENT_PROMPTS["nexus"]))
+    save_message(chat_id, "user", f"/browse {args}")
+    save_message(chat_id, "assistant", response)
+    send_message(chat_id,
+        f"🌐 *Browse  |  {url[:50]}*\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"{response}"
+    )
+
+
+def cmd_search(chat_id: int, args: str):
+    """Search the web via DuckDuckGo."""
+    query = args.strip()
+    if not query:
+        send_message(chat_id,
+            "🔍 *Search* — Usage:\n\n"
+            "`/search Nigeria tech ecosystem 2025`\n"
+            "`/search best DeFi protocols on Base`\n"
+            "`/search Claude Code alternatives`"
+        )
+        return
+
+    send_typing(chat_id)
+    from browser import search_web, format_search_results
+    results = search_web(query)
+    send_message(chat_id, format_search_results(query, results))
+
+
+def cmd_scout(chat_id: int, topic: str):
+    """SCOUT — research with live web search built in."""
+    if not topic.strip():
+        send_message(chat_id, "🔭 *SCOUT* — What do you want me to research?\n\nExample: `/scout Nigeria fintech ecosystem 2025`")
+        return
+
+    send_typing(chat_id)
+    send_message(chat_id, f"🔭 *SCOUT* searching the web for: _{topic}_...")
+
+    # Step 1 — search the web
+    from browser import search_web, read_page
+    results = search_web(topic, num_results=4)
+
+    # Step 2 — read top 2 results for depth
+    web_context = ""
+    if results:
+        web_context = "**Live web search results:**\n"
+        for i, r in enumerate(results, 1):
+            web_context += f"{i}. {r['title']} - {r['url']}\n   {r['snippet']}\n\n"
+
+        # Deep-read top result
+        top_url = results[0]["url"]
+        send_message(chat_id, f"🔭 Reading top source...")
+        page_content = read_page(top_url)
+        if page_content and len(page_content) > 300:
+            web_context += f"\n**Full content from top source ({top_url}):**\n{page_content[:3000]}\n"
+
+    # Step 3 — ask Claude with real web data
+    prompt = (
+        f"Research task: {topic}\n\n"
+        f"{web_context}\n\n"
+        f"Using the live web data above, write a detailed intelligence report with:\n"
+        f"1. TL;DR (3 bullet points)\n"
+        f"2. Key Findings\n"
+        f"3. What this means for a Nigerian/African developer/builder\n"
+        f"4. Recommended Actions\n\n"
+        f"Be specific, cite the sources, and include current data where available."
+    )
+
+    send_typing(chat_id)
+    response = ask_claude(prompt, AGENT_PROMPTS.get("scout", AGENT_PROMPTS["nexus"]))
+    save_message(chat_id, "user", f"/scout {topic}")
+    save_message(chat_id, "assistant", response)
+    send_message(chat_id,
+        f"🔭 *SCOUT  |  {topic[:50]}*\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"{response}"
+    )
+
+
 def cmd_agent_route(chat_id: int, agent: str, user_input: str, original_text: str):
     """Route a slash command to a named agent via Claude."""
     send_typing(chat_id)
@@ -597,7 +704,13 @@ def handle_message(chat_id: int, text: str, username: str):
             return cmd_status(chat_id)
         if cmd == "imagine":
             return cmd_imagine(chat_id, args)
-        if cmd in ("scout", "architect", "herald", "forge"):
+        if cmd == "browse":
+            return cmd_browse(chat_id, args)
+        if cmd == "search":
+            return cmd_search(chat_id, args)
+        if cmd == "scout":
+            return cmd_scout(chat_id, args)
+        if cmd in ("architect", "herald", "forge"):
             return cmd_agent_route(chat_id, cmd, args, text)
 
         # Unknown slash command → NEXUS handles it
