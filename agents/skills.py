@@ -101,16 +101,21 @@ def get_weather(city: str = "Lagos") -> str:
     """Uses wttr.in — free, no key needed."""
     encoded = urllib.parse.quote(city)
     url = f"https://wttr.in/{encoded}?format=j1"
-    raw = _fetch(url)
-    if not raw:
-        return f"🌤 *Weather* — Could not fetch for {city}."
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "curl/7.68.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+    except Exception as e:
+        return f"🌤 *Weather* — Could not fetch for {city}: {e}"
 
     try:
-        data = json.loads(raw.decode("utf-8", errors="replace"))
+        outer = json.loads(raw.decode("utf-8", errors="replace"))
+        # wttr.in wraps everything under "data" key
+        data = outer.get("data", outer)
         current = data["current_condition"][0]
-        area = data["nearest_area"][0]
-        area_name = area["areaName"][0]["value"]
-        country = area["country"][0]["value"]
+        nearest = data.get("nearest_area", [{}])[0]
+        area_name = (nearest.get("areaName") or [{"value": city}])[0].get("value", city)
+        country = (nearest.get("country") or [{"value": ""}])[0].get("value", "")
 
         temp_c = current["temp_C"]
         feels_c = current["FeelsLikeC"]
@@ -121,11 +126,12 @@ def get_weather(city: str = "Lagos") -> str:
         # 3-day forecast
         forecast_lines = []
         for day in data.get("weather", [])[:3]:
-            date = day["date"]
-            max_c = day["maxtempC"]
-            min_c = day["mintempC"]
-            desc_d = day["hourly"][4]["weatherDesc"][0]["value"]
-            forecast_lines.append(f"  {date}: {desc_d}, {min_c}°–{max_c}°C")
+            date = day.get("date", "")
+            max_c = day.get("maxtempC", "?")
+            min_c = day.get("mintempC", "?")
+            hourly = day.get("hourly", [])
+            desc_d = hourly[4]["weatherDesc"][0]["value"] if len(hourly) > 4 else "N/A"
+            forecast_lines.append(f"  {date}: {desc_d}, {min_c}-{max_c}C")
 
         forecast = "\n".join(forecast_lines)
 

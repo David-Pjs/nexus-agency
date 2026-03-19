@@ -515,7 +515,7 @@ def cmd_status(chat_id: int):
 
 
 def cmd_imagine(chat_id: int, prompt: str):
-    """Generate an image via Pollinations.ai — free, no key needed."""
+    """Generate an image — tries multiple free services."""
     if not prompt.strip():
         send_message(chat_id,
             "🎨 *FORGE  |  Image Generation*\n"
@@ -531,13 +531,47 @@ def cmd_imagine(chat_id: int, prompt: str):
     send_typing(chat_id)
     send_message(chat_id, "🎨 Generating your image...")
 
-    # Pollinations.ai — completely free, no auth
-    encoded = urllib.parse.quote(prompt.strip())
-    seed = int(time.time()) % 9999
-    image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&seed={seed}&nologo=true"
+    encoded = urllib.parse.quote(prompt.strip().replace(" ", "-"))
+    seed = int(time.time()) % 99999
 
-    send_photo(chat_id, image_url, caption=f"🎨 _{prompt[:100]}_")
-    print(f"[FORGE] Image generated: {prompt[:60]}")
+    # Try multiple Pollinations endpoints
+    urls_to_try = [
+        f"https://image.pollinations.ai/prompt/{encoded}?seed={seed}&width=1024&height=1024&nologo=1&enhance=true",
+        f"https://image.pollinations.ai/prompt/{encoded}?seed={seed}",
+        f"https://pollinations.ai/p/{encoded}",
+    ]
+
+    sent = False
+    for image_url in urls_to_try:
+        try:
+            req = urllib.request.Request(image_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                if resp.status == 200:
+                    img_data = resp.read()
+                    if len(img_data) > 1000:
+                        # Save and send
+                        tmp = os.path.join(_HERE, f"_img_{int(time.time())}.jpg")
+                        with open(tmp, "wb") as f:
+                            f.write(img_data)
+                        send_photo_local(chat_id, None,
+                                        caption=f"🎨 _{prompt[:100]}_",
+                                        local_path=tmp)
+                        try:
+                            os.remove(tmp)
+                        except Exception:
+                            pass
+                        sent = True
+                        break
+        except Exception as e:
+            print(f"[FORGE] Image URL failed: {image_url[:60]} — {e}")
+            continue
+
+    if not sent:
+        # Final fallback — send URL directly, let Telegram fetch it
+        fallback = f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt.strip())}?seed={seed}"
+        send_photo(chat_id, fallback, caption=f"🎨 _{prompt[:100]}_")
+
+    print(f"[FORGE] Image: {prompt[:60]}")
 
 
 def cmd_analyze_image(chat_id: int, file_id: str, caption: str = ""):
